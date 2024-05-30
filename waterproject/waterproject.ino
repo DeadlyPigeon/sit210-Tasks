@@ -17,6 +17,7 @@ PubSubClient client(wifiClient);
 #define DHTTYPE DHT22
 #define WATERPIN A0
 #define LEDPIN 3
+#define LEDPIN2 6
 DHT dht(DHTPIN, DHTTYPE);
 
 float hum;
@@ -26,8 +27,9 @@ int waterLevel;
 void setup() {
   Serial.begin(9600);
   pinMode(LEDPIN, OUTPUT);
+  pinMode(LEDPIN2, OUTPUT);
   digitalWrite(LEDPIN, LOW); //make sure led is off
-
+  digitalWrite(LEDPIN2, LOW); //make sure led is off
   connectWifi();
 
   dht.begin();
@@ -69,7 +71,8 @@ void connectMQTT() {
 
     if (client.connect("Nano33", mqtt_user, mqtt_password)) {
       Serial.println("Connected");
-      client.subscribe("home/actuators/LED");
+      client.subscribe("home/system/LED"); //recieve data from this topic
+      client.subscribe("home/system/FAN"); //recieve data from this topic aswell
     }
     else {
       Serial.println("failed trying again in 5 seconds");
@@ -100,15 +103,20 @@ void publishSensorData(const char* topic, float value) {
 void callback (char* topic, byte* payload, unsigned int length) {
   payload[length] = '\0'; //make sure it is in a valid string
   String message = String((char*)payload); //convert payload to string
-  //allows for button on node-red to turn on and off led
-  if (String(topic) == "home/actuators/LED") { //make sure message is from this topic
+  //allows for button on node-red to turn on led for time to simulate pump being on and then off
+  if (String(topic) == "home/system/LED") { //make sure message is from this topic
     if (message == "ON") { //simulate water pump, press "on" in node-red and pumps water for 2 seconds
       digitalWrite(LEDPIN, HIGH);
       delay(2000);
       digitalWrite(LEDPIN, LOW);
     } 
-    //else if (message == "OFF") {
-    //  digitalWrite(LEDPIN, LOW);
-    //}
+  }
+  if (String(topic) == "home/system/FAN") { //checks if message is coming from FAN
+    if (message == "ON") {
+      digitalWrite(LEDPIN2, HIGH); //turn led on to simulate turning a fan on when temps are too high
+    }
+    else if (message == "OFF") {
+      digitalWrite(LEDPIN2, LOW); //turn off when its temp goes back to normal
+    }
   }
 }
